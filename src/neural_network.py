@@ -5,16 +5,16 @@ import numpy as np
 
 
 class NeuralNetwork:
-    def __init__(self, nn_structure: List[int], learning_rate, epochs_num, data_set):
+    def __init__(self, nn_structure: List[int], learning_rate: float, epochs_num: int, dataset: np.array):
 
         if len(nn_structure) < 2:
             raise Exception("There must be no less than 2 layers!")
 
         self.nn_structure = nn_structure
         self.epochs_num = epochs_num
-        self.data_set = data_set
+        self.dataset = dataset
         
-        self.learning_rate = learning_rate
+        self.__learning_rate = learning_rate
 
         self.__biases = []
         self.__weights = []
@@ -32,12 +32,25 @@ class NeuralNetwork:
             # setup biases matrix for (next index - skipping input layer) layers
             self.__biases.append(np.array([(x - 0.5) / 5 for x in np.random.rand(next_size, 1)]))
             
-            
+    def predict(self, inputs: list) -> list:
+        """
+        This function will give prediction about outputs for given input.
+        IMPORTANT: inputs should be normalized (between 0 and 1).
+        Note: network should be first trained.
+        :param inputs: Data point to predict results for
+        :return: Neural network predictions
+        """
+        predictions = self.__feedforward(inputs)
+        raw = predictions.transpose()[0]
+
+        return list(raw)
             
     def train(self):
         for epoch in range(self.epochs_num):
-            random.shuffle(self.data_set)
-            for idx, sample in self.data_set:
+            error_sum = 0
+            random.shuffle(self.dataset)
+            
+            for idx, sample in enumerate(self.dataset):
                 input_point = sample[0]
                 expected = sample[1]
                 
@@ -45,8 +58,11 @@ class NeuralNetwork:
                 prediction = self.__feedforward(input_point)
 
                 # backward
-                change_for_weights, change_for_biases = self.__backpropagation(expected, prediction)
+                self.__backpropagation(expected, prediction)
+                
+                error_sum += calculate_cross_entropy_cost(expected, prediction)
 
+            print(f"Epoch {epoch + 1}/{self.epochs_num} - Error: {error_sum/len(self.dataset)}")
 
                 
                  
@@ -66,9 +82,9 @@ class NeuralNetwork:
             
             # Apply activation function
             if index == len(self.__layers_before_activation) - 2:
-                activated_layer = __softmax(layer_with_added_biases)
+                activated_layer = softmax(layer_with_added_biases)
             else:
-                activated_layer = __ReLU(layer_with_added_biases)
+                activated_layer = ReLU(layer_with_added_biases)
             
             self.__layers_before_activation[index + 1] = layer_with_added_biases
             current_layer_value = activated_layer
@@ -88,18 +104,15 @@ class NeuralNetwork:
         # Initialize error matrix with output layer error
         errors_matrix = expected_results_transposed - predictions
 
-        # Initialize lists to store changes for weights and biases
-        change_for_weights = [np.array([]) for x in range(len(self.__weights))]
-        change_for_biases = [np.array([]) for x in range(len(self.__biases))]
-
         # Iterate over each weight / bias matrix in reverse order
         # TODO might be also needed to swap into state machine
         for index in reversed(range(len(self.__weights))):
+            
             # Get the derivative of activation function for each layer weighted input
             if index == len(self.__weights) - 1:
-                activation_derivative_layer = __softmax_derivative(self.__layers_before_activation[index + 1])
+                activation_derivative_layer = softmax_derivative(self.__layers_before_activation[index + 1])
             else:
-                activation_derivative_layer = __ReLU_derivative(self.__layers_before_activation[index + 1])
+                activation_derivative_layer = ReLU_derivative(self.__layers_before_activation[index + 1])
 
             # Calculate the gradient
             gradient_matrix = activation_derivative_layer * errors_matrix * self.__learning_rate
@@ -107,18 +120,29 @@ class NeuralNetwork:
             # Calculate matrix with delta weights (values to change weights in given layer)
             delta_weights_matrix = np.matmul(gradient_matrix, self.__layers_before_activation[index].transpose())
 
-            # Adjust weights and biases
-            #TODO instead of storing update inplace -> for visualization -> training will be update per sample
-            change_for_weights[index] = delta_weights_matrix
-            change_for_biases[index] = gradient_matrix
-
             # Calculate error for next layer with respect to its weights
             errors_matrix = np.matmul(self.__weights[index].transpose(), errors_matrix)
 
-        return change_for_weights, change_for_biases
+
+            # Adjust weights and biases
+            self.__weights[index] = self.__weights[index] + delta_weights_matrix
+            self.__biases[index] = self.__biases[index] + gradient_matrix
                         
             
-def __softmax(x):
+def calculate_cross_entropy_cost(expected_values, real_values):
+    """
+    Calculate the cross-entropy cost between expected and real values.
+
+    :param expected_values: The expected values.
+    :param real_values: The real values.
+    :return: The cross-entropy cost.
+    """
+    val_sum = 0
+    for expected, real in zip(expected_values, real_values):
+        val_sum += expected * math.log(real)
+    return -val_sum
+            
+def softmax(x):
     """
     Compute the softmax activation function.
 
@@ -129,7 +153,7 @@ def __softmax(x):
     return tmp / np.sum(tmp)
 
 
-def __ReLU(x):
+def ReLU(x):
     """
     Compute the ReLU (Rectified Linear Unit) activation function.
 
@@ -139,18 +163,18 @@ def __ReLU(x):
     return x * (x > 0)
 
 
-def __softmax_derivative(x):
+def softmax_derivative(x):
     """
     Compute the derivative of the softmax activation function.
 
     :param x: Input values.
     :return: Derivative of softmax.
     """
-    tmp = __softmax(x)
+    tmp = softmax(x)
     return tmp * (1 - tmp)
 
 
-def __ReLU_derivative(x):
+def ReLU_derivative(x):
     """
     Compute the derivative of the ReLU activation function.
 
