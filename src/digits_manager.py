@@ -17,7 +17,7 @@ class DigitsDataset(object):
         self.__dataset = list(zip(X, y))
     
     def get_dataset(self) -> np.array:
-        return np.array(self.__dataset)
+        return self.__dataset
     
     def get_label(self, encoded_target: np.array) -> np.int64:
         return np.argmax(encoded_target)
