@@ -51,6 +51,18 @@ class NeuralNetwork:
             # setup biases matrix for (next index - skipping input layer) layers
             self.__biases.append(np.array([(x - 0.5) / 5 for x in np.random.rand(next_size, 1)]))
      
+    def get_current_epoch(self) -> int:
+        return self.__epoch_counter
+    
+    def get_current_sample_index(self) -> int:
+        return self.__sample_counter
+    
+    def get_learning_rate(self) -> float:
+        return self.__learning_rate 
+    
+    def get_state(self):
+        return self.__state.name, self.__counter
+     
     def get_layers_with_values(self) -> List[np.array]:
         return self.layers_values
     
@@ -97,6 +109,7 @@ class NeuralNetwork:
             self.__sample_counter = 0
             self.current_layer_value = None
             self.layers_values = [[] for x in range(len(self.nn_structure))]
+            self.__feedforward(sample[0])
             self.__state = NNState.FORWARD
         
         elif self.__state == NNState.FORWARD:
@@ -112,17 +125,20 @@ class NeuralNetwork:
             self.error_sum += calculate_cross_entropy_cost(expected_results, predictions)
 
             self.__state = NNState.BACKWARD
+            self.__backpropagation()
+            
         
         elif self.__state == NNState.BACKWARD:
             self.__backpropagation()
             
         elif self.__state == NNState.NEW_SAMPLE:
-            
+            self.layers_values = [[] for x in range(len(self.nn_structure))]
             self.__counter = None
             self.current_layer_value = None
             self.errors_matrix = None
             
             if self.__epoch_counter >= self.epochs_num:
+                self.__sample_counter = len(self.dataset) - 1
                 self.__state = NNState.TRAINED
                 print("Network trained!")
                 return False
@@ -136,8 +152,7 @@ class NeuralNetwork:
             else:
                 self.__sample_counter+=1
             
-            self.layers_values = [[] for x in range(len(self.nn_structure))]
-            self.__state = NNState.FORWARD            
+            self.__state = NNState.FORWARD    
             
         return True
                  
@@ -149,10 +164,20 @@ class NeuralNetwork:
             self.__counter = 0
             self.layers_values[self.__counter] = self.__layers_before_activation[0].copy()
             return
+        else:
+            self.__counter += 1
+
+        if self.__counter >= len(self.__layers_before_activation):         
+            self.__counter = None
+            
+            if self.__state == NNState.PREDICT_FORWARD:
+                self.__state = NNState.TRAINED
+            else:
+                self.__state = NNState.ERROR
+            return
             
 
-        index = self.__counter
-        self.__counter += 1
+        index = self.__counter - 1
         
         # Multiply layer weights with its values
         multiplied_by_weights_layer = np.matmul(self.__weights[index], self.current_layer_value)
@@ -170,22 +195,21 @@ class NeuralNetwork:
         self.current_layer_value = activated_layer
         
         self.layers_values[self.__counter] = activated_layer
-        
-        if self.__counter >= len(self.__layers_before_activation) - 1:         
-            self.__counter = None
-            
-            if self.__state == NNState.PREDICT_FORWARD:
-                self.__state = NNState.TRAINED
-            else:
-                self.__state = NNState.ERROR
     
     
     def __backpropagation(self):
         if self.__counter == None:
             self.__counter = len(self.__weights) - 1
+        else:
+            self.__counter -= 1
+            
+        if self.__counter < 0:
+            self.__counter = None
+            self.layers_values = [[] for x in range(len(self.nn_structure))]
+            self.__state = NNState.NEW_SAMPLE
+            return
 
         index = self.__counter
-        self.__counter -= 1
 
         # Get the derivative of activation function for each layer weighted input
         if index == len(self.__weights) - 1:
@@ -207,9 +231,7 @@ class NeuralNetwork:
         self.__weights[index] = self.__weights[index] + delta_weights_matrix
         self.__biases[index] = self.__biases[index] + gradient_matrix
         
-        if self.__counter < 0:
-            self.__counter = None
-            self.__state = NNState.NEW_SAMPLE
+        
             
                         
             

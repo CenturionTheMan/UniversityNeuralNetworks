@@ -16,7 +16,7 @@ class ConfiguratorWindow:
         
         # Apply theme
         self.style = ttk.Style()
-        #self.configure_styles()
+        self.configure_styles()
         self.root.style = self.style
         
         self.root.bind("<Escape>", lambda e: self.root.destroy())
@@ -64,29 +64,43 @@ class ConfiguratorWindow:
         self.add_layer()
         
     def configure_styles(self):
-        self.style.theme_use("clam")
+        # self.style.theme_use("clam")
         
-        self.style.configure("TButton",
-                                font=("Segoe UI", 10),
-                                padding=8,
-                                background=COL_HERO,
-                                foreground="white",
-                                borderwidth=0)
-        self.style.map("TButton",
-                        background=[("active", COL_CONNECTIONS)],
-                        relief=[("pressed", "sunken")])
+        # self.style.configure("TButton",
+        #                         font=("Segoe UI", 10),
+        #                         padding=8,
+        #                         background=COL_HERO,
+        #                         foreground="white",
+        #                         borderwidth=0)
+        # self.style.map("TButton",
+        #                 background=[("active", COL_CONNECTIONS)],
+        #                 relief=[("pressed", "sunken")])
         
-        self.style.configure("Title.TLabel",
-                                font=("Segoe UI", 14, "bold"),
-                                background=COL_BACKGROUND,
-                                foreground="white")
-
+        
         self.style.configure("BG.TFrame",
                                 background=COL_BACKGROUND)
         
-        self.style.configure("TScale",
-                                troughcolor=COL_CONNECTIONS,
-                                background=COL_BACKGROUND)
+        self.style.configure("ControlPanel.TFrame",
+                                background=COL_CONNECTIONS)
+        
+        self.style.configure("ControlTitle.TLabel",
+                                font=("Segoe UI", 14, "bold"),
+                                background=COL_CONNECTIONS,
+                                foreground="white")
+        
+        self.style.configure("StateLabel.TLabel",
+                                font=("Segoe UI", 12, "bold"),
+                                background=COL_CONNECTIONS,
+                                foreground=COL_FOCUS)
+        
+        self.style.configure("SampleLabel.TLabel",
+                                font=("Segoe UI", 12, "bold"),
+                                background=COL_CONNECTIONS,
+                                foreground="white")
+        
+        # self.style.configure("TScale",
+        #                         troughcolor=COL_CONNECTIONS,
+        #                         background=COL_BACKGROUND)
 
     def create_fixed_layer(self, parent, row, label, neurons=8):
         ttk.Label(parent, text=label, width=12).grid(row=row, column=0, sticky="w", padx=5, pady=3)
