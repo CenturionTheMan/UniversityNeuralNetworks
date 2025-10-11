@@ -15,14 +15,14 @@ class NNState(Enum):
     
 
 class NeuralNetwork:
-    def __init__(self, nn_structure: List[int], learning_rate: float, epochs_num: int, dataset: np.array):
+    def __init__(self, nn_structure: List[int], learning_rate: float, epochs_num: int, dataset: np.array, test_percent:float=.2):
 
         if len(nn_structure) < 2:
             raise Exception("There must be no less than 2 layers!")
 
         self.nn_structure = nn_structure
         self.epochs_num = epochs_num
-        self.dataset = dataset
+        self.train_set, self.test_set = dataset[:int(len(dataset)*(1-test_percent))], dataset[int(len(dataset)*(1-test_percent)):] 
         
         self.__learning_rate = learning_rate
 
@@ -34,7 +34,8 @@ class NeuralNetwork:
         self.__layers_before_activation = [np.zeros((x, 1)) for x in nn_structure]
 
         self.__epoch_counter = 0
-        self.__sample_counter = 0
+        self.__train_sample_counter = 0
+        self.__test_sample_counter = 0
         self.__counter = None
         self.current_layer_value = None
         self.layers_values = [[] for x in range(len(self.nn_structure))]
@@ -54,8 +55,12 @@ class NeuralNetwork:
     def get_current_epoch(self) -> int:
         return self.__epoch_counter
     
-    def get_current_sample_index(self) -> int:
-        return self.__sample_counter
+    
+    def get_current_test_sample_index(self) -> int:
+        return self.__test_sample_counter
+
+    def get_current_train_sample_index(self) -> int:
+        return self.__train_sample_counter
     
     def get_learning_rate(self) -> float:
         return self.__learning_rate 
@@ -97,16 +102,16 @@ class NeuralNetwork:
         return None
         
     def train_step(self) -> bool:
-        sample = self.dataset[self.__sample_counter]
+        sample = self.train_set[self.__train_sample_counter]
         
         if self.__state == NNState.TRAINED or self.__state == NNState.PREDICT_FORWARD:
             print("Network already trained!")
             return False
         
         elif self.__state == NNState.UNTRAINED:
-            random.shuffle(self.dataset)
+            random.shuffle(self.train_set)
             self.__epoch_counter = 0
-            self.__sample_counter = 0
+            self.__train_sample_counter = 0
             self.current_layer_value = None
             self.layers_values = [[] for x in range(len(self.nn_structure))]
             self.__feedforward(sample[0])
@@ -138,31 +143,31 @@ class NeuralNetwork:
             self.errors_matrix = None
             
             if self.__epoch_counter >= self.epochs_num:
-                self.__sample_counter = len(self.dataset) - 1
+                self.__train_sample_counter = len(self.train_set) - 1
                 self.__state = NNState.TRAINED
                 print("Network trained!")
                 return False
             
-            if self.__sample_counter >= len(self.dataset) - 1:
-                print(f"Epoch {self.__epoch_counter} completed. Error: {self.error_sum/len(self.dataset):.3f}")
-                
+            if self.__train_sample_counter >= len(self.train_set) - 1:
+                print(f"Epoch {self.__epoch_counter} completed. Error: {self.error_sum/len(self.train_set):.3f}")
                 self.__epoch_counter +=1
-                self.__sample_counter = 0                
+                self.__train_sample_counter = 0                
                 self.error_sum = 0.0
-            else:
-                self.__sample_counter+=1
             
-            self.__state = NNState.FORWARD    
+            self.__feedforward_init(sample[0])
+            self.__state = NNState.FORWARD
             
         return True
                  
-                 
+    def __feedforward_init(self, inputs: List):
+        self.__layers_before_activation[0] = np.array(inputs).reshape(len(inputs), 1)
+        self.current_layer_value = self.__layers_before_activation[0]
+        self.__counter = 0
+        self.layers_values[self.__counter] = self.__layers_before_activation[0].copy()
+    
     def __feedforward(self, inputs: List):
         if self.__counter == None: 
-            self.__layers_before_activation[0] = np.array(inputs).reshape(len(inputs), 1)
-            self.current_layer_value = self.__layers_before_activation[0]
-            self.__counter = 0
-            self.layers_values[self.__counter] = self.__layers_before_activation[0].copy()
+            self.__feedforward_init(inputs)
             return
         else:
             self.__counter += 1
@@ -172,6 +177,9 @@ class NeuralNetwork:
             
             if self.__state == NNState.PREDICT_FORWARD:
                 self.__state = NNState.TRAINED
+                self.__test_sample_counter += 1
+                if self.__test_sample_counter >= len(self.test_set):
+                    self.__test_sample_counter = 0
             else:
                 self.__state = NNState.ERROR
             return
@@ -206,6 +214,7 @@ class NeuralNetwork:
         if self.__counter < 0:
             self.__counter = None
             self.layers_values = [[] for x in range(len(self.nn_structure))]
+            self.__train_sample_counter += 1
             self.__state = NNState.NEW_SAMPLE
             return
 

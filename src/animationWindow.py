@@ -1,9 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-from neural_network import NeuralNetwork
-from colors import *
 
+import numpy as np
+from neural_network import NeuralNetwork
+from style import *
+from PIL import Image, ImageTk
 
 class AnimationWindow(tk.Toplevel):
     def __init__(self, root, nn: NeuralNetwork):
@@ -24,65 +26,155 @@ class AnimationWindow(tk.Toplevel):
 
         # Bind keys
         self.bind("<KeyPress-Escape>", lambda e: self.destroy())
-        self.bind("<Right>", lambda e: self.training_step())
+        self.bind("<Right>", lambda e: self.__training_step())
 
         # Colors
         self.configure(bg=COL_CONNECTIONS)
 
-        
         self.create_layout()
         self.after(100, self.calculate_cords)
         self.focus_set()
         
-    
+    # -------------------------------------- LAYOUT SETUP -------------------------------------- #
         
     def create_layout(self):
         #! Left canvas area
         self.canvas = tk.Canvas(self, bg=COL_BACKGROUND, highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.canvas.bind("<ButtonPress-1>", self._on_button_press)
-        self.canvas.bind("<B1-Motion>", self._on_mouse_drag)
-        self.canvas.bind("<ButtonRelease-1>", self._on_button_release)
-        self.canvas.bind("<Motion>", self.on_motion)
+        self.canvas.bind("<ButtonPress-1>", self.__on_button_press)
+        self.canvas.bind("<B1-Motion>", self.__on_mouse_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.__on_button_release)
+        self.canvas.bind("<Motion>", self.__on_motion)
 
         #! Right control panel
         ctrl_frame = ttk.Frame(self , style="ControlPanel.TFrame", width=250)
         ctrl_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=15, pady=20)
         ctrl_frame.pack_propagate(False)
+        
+        ttk.Label(ctrl_frame, text="Current sample", style="H1.TLabel").pack(pady=(10, 0))
+        ttk.Separator(ctrl_frame, orient="horizontal").pack(fill=tk.X, pady=(5,5))
+        self.sample_label = ttk.Label(ctrl_frame)
+        self.sample_label.pack(pady=(0,0))
 
-        ttk.Label(ctrl_frame, text="Training Controls", style="ControlTitle.TLabel").pack(pady=(0, 10))
-
+        ttk.Label(ctrl_frame, text="Training", style="H1.TLabel").pack(pady=(40, 0))
+        ttk.Separator(ctrl_frame, orient="horizontal").pack(fill=tk.X, pady=(5,5))
         self.create_right_train_section(ctrl_frame)
 
-        ttk.Separator(ctrl_frame, orient="horizontal").pack(fill=tk.X, pady=15)
+        ttk.Label(ctrl_frame, text="Testing", style="H1.TLabel").pack(pady=(40, 0))
+        ttk.Separator(ctrl_frame, orient="horizontal").pack(fill=tk.X, pady=(5,5))
+        self.create_right_test_section(ctrl_frame)
+        
 
-        exit_btn = ttk.Button(ctrl_frame, text="Exit", command=self.exit_window)
-        exit_btn.pack(side=tk.BOTTOM, pady=10, fill=tk.X)
+        ttk.Button(ctrl_frame, text="Exit", command=self.__exit_window).pack(side=tk.BOTTOM, pady=10, fill=tk.X)        
+
+    def create_right_test_section(self, ctrl_frame):
+        test_frame = ttk.Frame(ctrl_frame, style="ControlPanel.TFrame")
+        test_frame.pack(pady=0, fill=tk.X)
+        
+        ttk.Button(test_frame, text="▶ Predict Step", command=self.__predict_step).pack(pady=5, fill=tk.X)
+        ttk.Button(test_frame, text="⚙ Predict full", command=self.__predict_full).pack(pady=5, fill=tk.X)
 
     def create_right_train_section(self, ctrl_frame):
         train_frame = ttk.Frame(ctrl_frame, style="ControlPanel.TFrame")
-        train_frame.pack(pady=10, fill=tk.X)
-
-        #nn status
+        train_frame.pack(pady=0, fill=tk.X)
+        
         state, layer_index = self.nn.get_state()
         self.nn_state_var = tk.StringVar(value=f"NN State: {state}\n")
-        state_label = ttk.Label(train_frame, textvariable=self.nn_state_var, style="StateLabel.TLabel")
-        state_label.pack(pady=(10, 10))
+        state_label = ttk.Label(train_frame, textvariable=self.nn_state_var, style="H2.TLabel")
+        state_label.pack(pady=(0, 5))
         
-        self.nn_samples_var = tk.StringVar(value=f"Sample: {self.nn.get_current_sample_index() + 1} / {len(self.nn.dataset)}")
-        samples_label = ttk.Label(train_frame, textvariable=self.nn_samples_var, style="SampleLabel.TLabel")
-        samples_label.pack(pady=(0, 10))
+        self.nn_epoch_var = tk.StringVar(value=f"Epoch (training): 0 / {self.nn.epochs_num}")
+        epoch_label = ttk.Label(train_frame, textvariable=self.nn_epoch_var, style="H2.TLabel")
+        epoch_label.pack(pady=(0, 5))
         
-        self.nn_epoch_var = tk.StringVar(value=f"Epoch: 0 / {self.nn.epochs_num}")
-        epoch_label = ttk.Label(train_frame, textvariable=self.nn_epoch_var, style="SampleLabel.TLabel")
-        epoch_label.pack(pady=(0, 10))
+        self.nn_samples_var = tk.StringVar(value=f"Sample: {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
+        samples_label = ttk.Label(train_frame, textvariable=self.nn_samples_var, style="H3.TLabel")
+        samples_label.pack(pady=(0, 5))
         
-        ttk.Button(train_frame, text="▶ Training Step", command=self.training_step).pack(pady=10, fill=tk.X)
-        ttk.Button(train_frame, text="⚙ Train full", command=self.train_full).pack(pady=5, fill=tk.X)
-        ttk.Button(train_frame, text="⟳ Reset Network", command=self.reset).pack(pady=5, fill=tk.X)
+        ttk.Button(train_frame, text="▶ Training Step", command=self.__training_step).pack(pady=5, fill=tk.X)
+        ttk.Button(train_frame, text="⚙ Train full", command=self.__train_full).pack(pady=5, fill=tk.X)
+        ttk.Button(train_frame, text="⟳ Reset Network", command=self.__reset).pack(pady=5, fill=tk.X)
+        
+
+    def update_sample_photo(self, sample):
+        if sample is None:
+            sample = np.zeros((64,))
+        sample = 1 - sample
+        new_img = (sample.reshape(8, 8) * 255).astype("uint8")
+        new_img = Image.fromarray(new_img, mode='L').resize((128, 128))
+        sample_photo = ImageTk.PhotoImage(new_img)
+        self.sample_label.configure(image=sample_photo)
+        self.sample_label.image = sample_photo
+    
+
+    # -------------------------------------- BUTTONS EVENTS -------------------------------------- #
+
+    def __predict_step(self):
+        index = self.nn.get_current_test_sample_index()
+        sample, target = self.nn.test_set[index - 1]
+        
+        self.nn.predict_step(sample)
+        self.draw_network_text()
+        self.draw_active_layer_mark()
+        state, layer_index = self.nn.get_state()
+        
+        if state == "PREDICT_FORWARD" and layer_index == 0:
+            print(f"Predicting sample index: {index}")
+            self.update_sample_photo(sample)
+        elif state == "TRAINED":
+            self.update_sample_photo(None)
+    
+    def __predict_full(self):
+        pass
 
 
-    def on_click(self, event):
+    def __training_step(self):
+        self.nn.train_step()
+        self.draw_network_text()
+        self.draw_active_layer_mark()
+        state, layer_index = self.nn.get_state()
+        self.nn_state_var.set(f"NN State: {state}\n(Layer: {layer_index})" if layer_index is not None else f"NN State: {state}\n")
+        self.nn_samples_var.set(f"Sample: {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
+        self.nn_epoch_var.set(f"Epoch: {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
+        
+        if state == "FORWARD" and layer_index == 0:
+            self.update_sample_photo(self.nn.train_set[self.nn.get_current_train_sample_index() - 1][0])
+        elif state == "NEW_SAMPLE":
+            self.update_sample_photo(None)
+     
+    def __train_full(self):
+        con_training = True
+        while con_training:
+            con_training = self.nn.train_step()
+        print("Training complete")
+        state, layer_index = self.nn.get_state()
+        self.nn_state_var.set(f"NN State: {state}\n(Layer: {layer_index})" if layer_index is not None else f"NN State: {state}\n")
+        self.nn_samples_var.set(f"Sample: {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
+        self.nn_epoch_var.set(f"Epoch: {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
+        self.draw_network_text()
+        self.draw_active_layer_mark()
+        self.update_sample_photo(None)
+    
+    def __reset(self):
+        self.neuron_positions = None
+        self.neurons_dic = {}
+        self.hovered_neuron = None
+        self.clicked_neuron = None
+        self.active_connections = []
+        self.clicked_connections = []
+        self.nn = NeuralNetwork(nn_structure=self.nn.get_structure(), 
+                                learning_rate=self.nn.get_learning_rate(), 
+                                epochs_num=self.nn.epochs_num, 
+                                dataset=self.nn.train_set)
+        self.after(100, self.calculate_cords)
+        self.update_sample_photo(None)
+    
+    def __exit_window(self):
+        self.destroy()
+        
+    # -------------------------------------- INPUT EVENTS -------------------------------------- #
+
+    def __on_click(self, event):
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         items = self.canvas.find_overlapping(cx, cy, cx, cy)
         clicked = [i for i in items if "neurons" in self.canvas.gettags(i)]
@@ -98,9 +190,8 @@ class AnimationWindow(tk.Toplevel):
             self.canvas.itemconfig(clicked[0], fill=COL_FOCUS)
             self.clicked_neuron = clicked[0]
         self.draw_network_connections()
-        
     
-    def on_motion(self, event):
+    def __on_motion(self, event):
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
 
         items = self.canvas.find_overlapping(cx, cy, cx, cy)
@@ -113,31 +204,31 @@ class AnimationWindow(tk.Toplevel):
             return
 
         if self.hovered_neuron == hovered[0]:
-            return
+            return        
 
         self.hovered_neuron = hovered[0]
         self.draw_network_connections()
 
-    
-
-    def _on_button_press(self, event):
+    def __on_button_press(self, event):
         self._press_x, self._press_y = event.x, event.y
         self._did_pan = False
         self.canvas.scan_mark(event.x, event.y)
 
-    def _on_mouse_drag(self, event):
+    def __on_mouse_drag(self, event):
         dx = event.x - getattr(self, "_press_x", event.x)
         dy = event.y - getattr(self, "_press_y", event.y)
         if abs(dx) > 4 or abs(dy) > 4:
             self._did_pan = True
             self.canvas.scan_dragto(event.x, event.y, gain=1)
 
-    def _on_button_release(self, event):
+    def __on_button_release(self, event):
         if not getattr(self, "_did_pan", False):
-            self.on_click(event)
+            self.__on_click(event)
         bbox = self.canvas.bbox("all")
         if bbox:
             self.canvas.configure(scrollregion=bbox)
+    
+    # -------------------------------------- CALCULATE CORDS -------------------------------------- #
     
     def calculate_cords(self):
         structure = self.nn.get_structure()
@@ -165,7 +256,7 @@ class AnimationWindow(tk.Toplevel):
 
         self.draw_network_all()
 
-   
+    # -------------------------------------- DRAW NETWORK -------------------------------------- #
         
     def draw_network_all(self):
         self.canvas.delete("all")
@@ -193,6 +284,7 @@ class AnimationWindow(tk.Toplevel):
                                                            fill=COL_BACKGROUND, outline=COL_TEXT, width=1, tags="biases")
                     
         self.draw_network_text()
+        self.update_sample_photo(None)
     
     def draw_network_connections(self, draw_all=False):
         self.canvas.delete("connections")
@@ -213,7 +305,8 @@ class AnimationWindow(tk.Toplevel):
             
             if i + 1 < len(self.neuron_positions):
                 for o, (dest_x, dest_y) in enumerate(self.neuron_positions[i + 1]):
-                    nn_line = self.canvas.create_line(src_x, src_y, dest_x, dest_y, fill=COL_CONNECTIONS, width=1, tags="connections")
+                    nn_line = self.canvas.create_line(src_x, src_y, dest_x, dest_y, 
+                                                      fill=COL_CONNECTIONS, width=1, tags="connections")
                     self.canvas.tag_lower(nn_line) 
                     self.active_connections.append([i,j, i+1, o, 
                                                     (src_x + dest_x)/2,
@@ -222,7 +315,8 @@ class AnimationWindow(tk.Toplevel):
                     
             if i - 1 >= 0:
                 for o, (dest_x, dest_y) in enumerate(self.neuron_positions[i - 1]):
-                    nn_line = self.canvas.create_line(src_x, src_y, dest_x, dest_y, fill=COL_CONNECTIONS, width=1, tags="connections")
+                    nn_line = self.canvas.create_line(src_x, src_y, dest_x, dest_y, 
+                                                      fill=COL_CONNECTIONS, width=1, tags="connections")
                     self.canvas.tag_lower(nn_line) 
                     self.active_connections.append([i-1, o, i, j, 
                                                     (src_x + dest_x)/2,
@@ -233,7 +327,8 @@ class AnimationWindow(tk.Toplevel):
             for i in range(len(self.neuron_positions) - 1):
                 for src_x, src_y in self.neuron_positions[i]:
                     for o, (dest_x, dest_y) in enumerate(self.neuron_positions[i + 1]):
-                        nn_line = self.canvas.create_line(src_x, src_y, dest_x, dest_y, fill=COL_CONNECTIONS, width=1, tags="connections")
+                        nn_line = self.canvas.create_line(src_x, src_y, dest_x, dest_y, 
+                                                          fill=COL_CONNECTIONS, width=1, tags="connections")
                         self.canvas.tag_lower(nn_line) 
                         self.active_connections.append([i,j, i+1, o, 
                                                         (src_x + dest_x)/2,
@@ -312,8 +407,6 @@ class AnimationWindow(tk.Toplevel):
             min_y = min(pos[1] for pos in layer) - self.neuron_radius - offset
             max_y = max(pos[1] for pos in layer) + self.neuron_radius + offset
         
-            
-        
         self.canvas.create_rectangle(
             min_x, min_y, max_x, max_y,
             outline=COL_FOCUS,
@@ -325,41 +418,4 @@ class AnimationWindow(tk.Toplevel):
                      
         
         
-    def training_step(self):
-        self.nn.train_step()
-        self.draw_network_text()
-        self.draw_active_layer_mark()
-        state, layer_index = self.nn.get_state()
-        self.nn_state_var.set(f"NN State: {state}\n(Layer: {layer_index})" if layer_index is not None else f"NN State: {state}\n")
-        self.nn_samples_var.set(f"Sample: {self.nn.get_current_sample_index() + 1} / {len(self.nn.dataset)}")
-        self.nn_epoch_var.set(f"Epoch: {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
-        print(f"NN State: {state}, Layer: {layer_index}")
-     
-    def train_full(self):
-        con_training = True
-        while con_training:
-            con_training = self.nn.train_step()
-        print("Training complete")
-        state, layer_index = self.nn.get_state()
-        self.nn_state_var.set(f"NN State: {state}\n(Layer: {layer_index})" if layer_index is not None else f"NN State: {state}\n")
-        self.nn_samples_var.set(f"Sample: {self.nn.get_current_sample_index() + 1} / {len(self.nn.dataset)}")
-        self.nn_epoch_var.set(f"Epoch: {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
-        self.draw_network_text()
-        self.draw_active_layer_mark()
-
     
-    def reset(self):
-        self.neuron_positions = None
-        self.neurons_dic = {}
-        self.hovered_neuron = None
-        self.clicked_neuron = None
-        self.active_connections = []
-        self.clicked_connections = []
-        self.nn = NeuralNetwork(nn_structure=self.nn.get_structure(), 
-                                learning_rate=self.nn.get_learning_rate(), 
-                                epochs_num=self.nn.epochs_num, 
-                                dataset=self.nn.dataset)
-        self.after(100, self.calculate_cords)
-    
-    def exit_window(self):
-        self.destroy()

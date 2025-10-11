@@ -4,11 +4,16 @@ import tkinter as tk
 from digits_manager import DigitsDataset
 import numpy as np
 
+
+
 def test_state_nn():
     digitsCls = DigitsDataset()
     dataset = digitsCls.get_dataset()
     
-    nn = NeuralNetwork(nn_structure=[64, 16, 8, 10], learning_rate=0.01, epochs_num=15, dataset=dataset)
+    test_percent = 0.2
+    train, test = dataset[:int(len(dataset)*(1-test_percent))], dataset[int(len(dataset)*(1-test_percent)):]    
+    
+    nn = NeuralNetwork(nn_structure=[64, 16, 8, 10], learning_rate=0.01, epochs_num=15, dataset=train)
     
     con_training = True
     while con_training:
@@ -16,7 +21,7 @@ def test_state_nn():
 
 
     accuracy_sum = 0
-    for idx, (d, t) in enumerate(dataset):
+    for idx, (d, t) in enumerate(test):
         
         pred_con = True
         while pred_con:
@@ -31,10 +36,10 @@ def test_state_nn():
         if target_label == pred_label:
             accuracy_sum +=1
             
-    print(f"Accuracy: {accuracy_sum}/{len(dataset)} = {accuracy_sum/len(dataset)*100:.2f}%")
+    print(f"Accuracy: {accuracy_sum}/{len(test)} = {accuracy_sum/len(test)*100:.2f}%")
 
 if __name__ == "__main__":
-    # test_state_nn()
     root = tk.Tk()
     gui = ConfiguratorWindow(root)
     root.mainloop() 
+    # test_state_nn()
