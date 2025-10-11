@@ -71,6 +71,11 @@ class AnimationWindow(tk.Toplevel):
         test_frame = ttk.Frame(ctrl_frame, style="ControlPanel.TFrame")
         test_frame.pack(pady=0, fill=tk.X)
         
+        self.nn_samples_testing_var = tk.StringVar(value=f"Sample (testing): {self.nn.get_current_test_sample_index() + 1} / {len(self.nn.test_set)}")
+        samples_label = ttk.Label(test_frame, textvariable=self.nn_samples_testing_var, style="H3.TLabel")
+        samples_label.pack(pady=(0, 5))
+        
+        
         ttk.Button(test_frame, text="▶ Predict Step", command=self.__predict_step).pack(pady=5, fill=tk.X)
         ttk.Button(test_frame, text="⚙ Predict full", command=self.__predict_full).pack(pady=5, fill=tk.X)
 
@@ -87,7 +92,7 @@ class AnimationWindow(tk.Toplevel):
         epoch_label = ttk.Label(train_frame, textvariable=self.nn_epoch_var, style="H2.TLabel")
         epoch_label.pack(pady=(0, 5))
         
-        self.nn_samples_var = tk.StringVar(value=f"Sample: {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
+        self.nn_samples_var = tk.StringVar(value=f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
         samples_label = ttk.Label(train_frame, textvariable=self.nn_samples_var, style="H3.TLabel")
         samples_label.pack(pady=(0, 5))
         
@@ -118,6 +123,8 @@ class AnimationWindow(tk.Toplevel):
         self.draw_active_layer_mark()
         state, layer_index = self.nn.get_state()
         
+        self.nn_samples_testing_var.set(f"Sample (testing): {self.nn.get_current_test_sample_index() + 1} / {len(self.nn.test_set)}")
+        
         if state == "PREDICT_FORWARD" and layer_index == 0:
             print(f"Predicting sample index: {index}")
             self.update_sample_photo(sample)
@@ -133,9 +140,9 @@ class AnimationWindow(tk.Toplevel):
         self.draw_network_text()
         self.draw_active_layer_mark()
         state, layer_index = self.nn.get_state()
-        self.nn_state_var.set(f"NN State: {state}\n(Layer: {layer_index})" if layer_index is not None else f"NN State: {state}\n")
-        self.nn_samples_var.set(f"Sample: {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
-        self.nn_epoch_var.set(f"Epoch: {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
+        self.nn_state_var.set(f"NN State: {state}")
+        self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
+        self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
         
         if state == "FORWARD" and layer_index == 0:
             self.update_sample_photo(self.nn.train_set[self.nn.get_current_train_sample_index() - 1][0])
@@ -149,8 +156,8 @@ class AnimationWindow(tk.Toplevel):
         print("Training complete")
         state, layer_index = self.nn.get_state()
         self.nn_state_var.set(f"NN State: {state}\n(Layer: {layer_index})" if layer_index is not None else f"NN State: {state}\n")
-        self.nn_samples_var.set(f"Sample: {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
-        self.nn_epoch_var.set(f"Epoch: {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
+        self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
+        self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
         self.draw_network_text()
         self.draw_active_layer_mark()
         self.update_sample_photo(None)
@@ -167,6 +174,9 @@ class AnimationWindow(tk.Toplevel):
                                 epochs_num=self.nn.epochs_num, 
                                 dataset=self.nn.train_set)
         self.after(100, self.calculate_cords)
+        self.nn_state_var.set(f"NN State: UNTRAINED")
+        self.nn_samples_var.set(f"Sample (training): 1 / {len(self.nn.train_set)}")
+        self.nn_epoch_var.set(f"Epoch (training): 0 / {self.nn.epochs_num}")
         self.update_sample_photo(None)
     
     def __exit_window(self):
