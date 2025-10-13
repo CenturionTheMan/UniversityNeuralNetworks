@@ -30,6 +30,7 @@ class NeuralNetwork:
         self.__weights = []
 
         self.__state = NNState.UNTRAINED
+        self.__state_pre = None
 
         self.__layers_before_activation = [np.zeros((x, 1)) for x in nn_structure]
 
@@ -41,7 +42,7 @@ class NeuralNetwork:
         self.layers_values = [[] for x in range(len(self.nn_structure))]
         self.error_sum = 0.0
         self.errors_matrix = None
-
+        
         for i in range(len(nn_structure) - 1):
             current_size = nn_structure[i]  # from layer (index)
             next_size = nn_structure[i + 1]  # to layer (index)
@@ -81,15 +82,14 @@ class NeuralNetwork:
         return self.__biases
             
     def predict_step(self, inputs: list) -> bool:
-        if not self.__state in [NNState.TRAINED, NNState.PREDICT_FORWARD]:
-            print("TRAIN NN FIRST!")
-            return True
+        if not self.__state in [NNState.TRAINED, NNState.NEW_SAMPLE, NNState.PREDICT_FORWARD, NNState.UNTRAINED]:
+            raise Exception("Prediction can be made only on states TRAINED or NEW_SAMPLE!")
         
-        if self.__state == NNState.TRAINED:
+        if self.__state in [NNState.TRAINED, NNState.NEW_SAMPLE, NNState.UNTRAINED]:
+            self.__state_pre = self.__state
             self.__counter = None
             self.current_layer_value = None
             self.layers_values = [[] for x in range(len(self.nn_structure))]
-            
             
         self.__state = NNState.PREDICT_FORWARD
         self.__feedforward(inputs)
@@ -102,6 +102,9 @@ class NeuralNetwork:
         return None
         
     def train_step(self) -> bool:
+        if self.__state == NNState.PREDICT_FORWARD:
+            raise Exception("Cannot train while predicting!")
+        
         sample = self.train_set[self.__train_sample_counter]
         
         if self.__state == NNState.TRAINED or self.__state == NNState.PREDICT_FORWARD:
@@ -124,8 +127,8 @@ class NeuralNetwork:
             predictions = self.current_layer_value
             expected_results = sample[1]
             
-            expected_results_transposed = np.array(expected_results).reshape(len(expected_results), 1)
-            self.errors_matrix = expected_results_transposed - predictions
+            #expected_results_transposed = np.array(expected_results).reshape(len(expected_results), 1)
+            #self.errors_matrix = expected_results_transposed - predictions
             
             self.error_sum += calculate_cross_entropy_cost(expected_results, predictions)
 
@@ -176,11 +179,16 @@ class NeuralNetwork:
             self.__counter = None
             
             if self.__state == NNState.PREDICT_FORWARD:
-                self.__state = NNState.TRAINED
+                self.__state = self.__state_pre
                 self.__test_sample_counter += 1
                 if self.__test_sample_counter >= len(self.test_set):
                     self.__test_sample_counter = 0
             else:
+                sample = self.train_set[self.__train_sample_counter]
+                predictions = self.current_layer_value
+                expected_results = sample[1]
+                expected_results_transposed = np.array(expected_results).reshape(len(expected_results), 1)
+                self.errors_matrix = expected_results_transposed - predictions
                 self.__state = NNState.ERROR
             return
             

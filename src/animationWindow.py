@@ -26,7 +26,7 @@ class AnimationWindow(tk.Toplevel):
 
         # Bind keys
         self.bind("<KeyPress-Escape>", lambda e: self.destroy())
-        self.bind("<Right>", lambda e: self.__training_step())
+        self.bind("<Right>", lambda e: self.__on_right_arrow())
 
         # Colors
         self.configure(bg=COL_CONNECTIONS)
@@ -77,19 +77,18 @@ class AnimationWindow(tk.Toplevel):
         
         
         ttk.Button(test_frame, text="▶ Predict Step", command=self.__predict_step).pack(pady=5, fill=tk.X)
-        ttk.Button(test_frame, text="⚙ Predict full", command=self.__predict_full).pack(pady=5, fill=tk.X)
 
     def create_right_train_section(self, ctrl_frame):
         train_frame = ttk.Frame(ctrl_frame, style="ControlPanel.TFrame")
         train_frame.pack(pady=0, fill=tk.X)
         
         state, layer_index = self.nn.get_state()
-        self.nn_state_var = tk.StringVar(value=f"NN State: {state}\n")
+        self.nn_state_var = tk.StringVar(value=f"NN State: {state}")
         state_label = ttk.Label(train_frame, textvariable=self.nn_state_var, style="H2.TLabel")
         state_label.pack(pady=(0, 5))
         
         self.nn_epoch_var = tk.StringVar(value=f"Epoch (training): 0 / {self.nn.epochs_num}")
-        epoch_label = ttk.Label(train_frame, textvariable=self.nn_epoch_var, style="H2.TLabel")
+        epoch_label = ttk.Label(train_frame, textvariable=self.nn_epoch_var, style="H3.TLabel")
         epoch_label.pack(pady=(0, 5))
         
         self.nn_samples_var = tk.StringVar(value=f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
@@ -97,6 +96,7 @@ class AnimationWindow(tk.Toplevel):
         samples_label.pack(pady=(0, 5))
         
         ttk.Button(train_frame, text="▶ Training Step", command=self.__training_step).pack(pady=5, fill=tk.X)
+        ttk.Button(train_frame, text="▶ Train epoch", command=self.__train_epoch).pack(pady=5, fill=tk.X)
         ttk.Button(train_frame, text="⚙ Train full", command=self.__train_full).pack(pady=5, fill=tk.X)
         ttk.Button(train_frame, text="⟳ Reset Network", command=self.__reset).pack(pady=5, fill=tk.X)
         
@@ -113,12 +113,24 @@ class AnimationWindow(tk.Toplevel):
     
 
     # -------------------------------------- BUTTONS EVENTS -------------------------------------- #
+    def __on_right_arrow(self):
+        state, layer_index = self.nn.get_state()
+        if state =="TRAINED" or state=="PREDICT_FORWARD":
+            self.__predict_step()
+        else:
+            self.__training_step()
+
 
     def __predict_step(self):
         index = self.nn.get_current_test_sample_index()
         sample, target = self.nn.test_set[index - 1]
         
-        self.nn.predict_step(sample)
+        try:
+            self.nn.predict_step(sample)
+        except Exception as e:
+            messagebox.showinfo("Error", str(e))
+            return
+        
         self.draw_network_text()
         self.draw_active_layer_mark()
         state, layer_index = self.nn.get_state()
@@ -130,13 +142,13 @@ class AnimationWindow(tk.Toplevel):
             self.update_sample_photo(sample)
         elif state == "TRAINED":
             self.update_sample_photo(None)
-    
-    def __predict_full(self):
-        pass
-
 
     def __training_step(self):
-        self.nn.train_step()
+        try:
+            self.nn.train_step()
+        except Exception as e:
+            messagebox.showinfo("Error", str(e))
+            return
         self.draw_network_text()
         self.draw_active_layer_mark()
         state, layer_index = self.nn.get_state()
@@ -145,17 +157,39 @@ class AnimationWindow(tk.Toplevel):
         self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
         
         if state == "FORWARD" and layer_index == 0:
-            self.update_sample_photo(self.nn.train_set[self.nn.get_current_train_sample_index() - 1][0])
+            self.update_sample_photo(self.nn.train_set[self.nn.get_current_train_sample_index()][0])
         elif state == "NEW_SAMPLE":
             self.update_sample_photo(None)
      
+    def __train_epoch(self):
+        samples_amt = len(self.nn.train_set)
+        try: 
+            con_training = True
+            while con_training and self.nn.get_current_train_sample_index() < samples_amt-1:
+                con_training = self.nn.train_step()
+        except Exception as e:
+            messagebox.showinfo("Error", str(e))
+            return
+        print("Epoch complete")
+        state, layer_index = self.nn.get_state()
+        self.nn_state_var.set(f"NN State: {state}")
+        self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
+        self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
+        self.draw_network_text()
+        self.draw_active_layer_mark()
+        self.update_sample_photo(None)
+     
     def __train_full(self):
-        con_training = True
-        while con_training:
-            con_training = self.nn.train_step()
+        try: 
+            con_training = True
+            while con_training:
+                con_training = self.nn.train_step()
+        except Exception as e:
+            messagebox.showinfo("Error", str(e))
+            return
         print("Training complete")
         state, layer_index = self.nn.get_state()
-        self.nn_state_var.set(f"NN State: {state}\n(Layer: {layer_index})" if layer_index is not None else f"NN State: {state}\n")
+        self.nn_state_var.set(f"NN State: {state}")
         self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
         self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
         self.draw_network_text()
@@ -196,8 +230,9 @@ class AnimationWindow(tk.Toplevel):
             self.canvas.itemconfig(clicked[0], fill=COL_NEURONS)
             self.clicked_neuron = None
         else:        
-            self.canvas.itemconfig(self.clicked_neuron, fill=COL_NEURONS)
-            self.canvas.itemconfig(clicked[0], fill=COL_FOCUS)
+            if self.clicked_neuron is not None:
+                self.canvas.itemconfig(self.clicked_neuron, fill=COL_NEURONS)
+            self.canvas.itemconfig(clicked[0], fill=COL_CONNECTIONS)
             self.clicked_neuron = clicked[0]
         self.draw_network_connections()
     
@@ -252,9 +287,10 @@ class AnimationWindow(tk.Toplevel):
         vertical_spacing = 80
 
         self.neuron_positions = []
+        self.error_positions = []
 
         for i, num_neurons in enumerate(structure):
-            layer_x = (i + 1) * layer_spacing
+            layer_x = (i + 1) * layer_spacing - 0.25*layer_spacing
             total_height = (num_neurons - 1) * vertical_spacing
             top_y = (height - total_height) / 2
 
@@ -263,6 +299,11 @@ class AnimationWindow(tk.Toplevel):
                 y = top_y + j * vertical_spacing
                 layer_positions.append((layer_x, y))
             self.neuron_positions.append(layer_positions)
+
+        error_x = layer_spacing * (len(structure) + 1) - 0.75*layer_spacing
+        for j in range(structure[-1]):
+            y = (height - (structure[-1] - 1) * vertical_spacing) / 2 + j * vertical_spacing
+            self.error_positions.append((error_x, y))
 
         self.draw_network_all()
 
@@ -286,12 +327,21 @@ class AnimationWindow(tk.Toplevel):
                 )
 
                 self.neurons_dic[nn_neuron] = {"index": (i, j), "cords": (layer_x, y)}
+                self.neurons_dic[(i,j)] = nn_neuron
 
                 if i > 0:
                     nn_bias = self.canvas.create_rectangle(layer_x + self.neuron_radius, y - self.neuron_radius, 
                                                            layer_x + self.neuron_radius + self.bias_size, 
                                                            y - self.neuron_radius - self.bias_size, 
                                                            fill=COL_BACKGROUND, outline=COL_TEXT, width=1, tags="biases")
+                    
+                    
+        for j, (x, y) in enumerate(self.error_positions):
+            nn_error = self.canvas.create_rectangle(
+                x, y - self.neuron_radius,
+                x + self.bias_size, y + self.neuron_radius,
+                fill=COL_BACKGROUND, outline=COL_NEURONS, width=1.5, tags="errors"
+            )
                     
         self.draw_network_text()
         self.update_sample_photo(None)
@@ -358,7 +408,7 @@ class AnimationWindow(tk.Toplevel):
                     layer_x, y,
                     text=f"{layers_values[i][j][0]:.2f}" if len(layers_values[i]) > 0 else "??",
                     font=("Arial", 10, "bold"),
-                    fill="white",
+                    fill="white" if len(layers_values[i]) > 0 and layers_values[i][j][0] < 0.5 else COL_TEXT,
                     tags="text"
                 )
                 
@@ -370,7 +420,21 @@ class AnimationWindow(tk.Toplevel):
                         fill=COL_TEXT,
                         tags="text"
                     ) 
+        
+        state, _ = self.nn.get_state()
+        error_values = self.nn.errors_matrix
+        for j, (x, y) in enumerate(self.error_positions):
+            nn_text_error = self.canvas.create_text(
+                x + self.bias_size/2, y,
+                text=f"{error_values[j][0]:.2f}" if error_values is not None and state == "ERROR" else "??",
+                font=("Arial", 10, "bold"),
+                fill=COL_RED,
+                tags="text"
+            )
+        
         self.draw_network_text_connections()
+        self.draw_activated_neurons()
+        
     
     def draw_network_text_connections(self):
         self.canvas.delete("text_connections")
@@ -425,6 +489,21 @@ class AnimationWindow(tk.Toplevel):
             tags="active_layer"
         )
         self.canvas.tag_lower("active_layer")
+        
+        
+    def draw_activated_neurons(self):
+        layers_values = self.nn.get_layers_with_values()
+        for i, layer in enumerate(self.neuron_positions):
+            for j, (layer_x, y) in enumerate(layer):
+                nn_neuron = self.neurons_dic[(i,j)]
+                value = layers_values[i][j][0] if len(layers_values[i]) > 0 else 0
+                intensity = int(min(max(value * 255, 0), 255))
+                color = f'#{int((int(COL_NEURONS[1:3],16) * (255 - intensity) + int(COL_FOCUS[1:3],16) * intensity)/255):02x}' + \
+                        f'{int((int(COL_NEURONS[3:5],16) * (255 - intensity) + int(COL_FOCUS[3:5],16) * intensity)/255):02x}' + \
+                        f'{int((int(COL_NEURONS[5:7],16) * (255 - intensity) + int(COL_FOCUS[5:7],16) * intensity)/255):02x}'             
+                
+                self.canvas.itemconfig(nn_neuron, fill=color)
+                
                      
         
         
