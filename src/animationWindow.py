@@ -71,7 +71,7 @@ class AnimationWindow(tk.Toplevel):
         test_frame = ttk.Frame(ctrl_frame, style="ControlPanel.TFrame")
         test_frame.pack(pady=0, fill=tk.X)
         
-        self.nn_samples_testing_var = tk.StringVar(value=f"Sample (testing): {self.nn.get_current_test_sample_index() + 1} / {len(self.nn.test_set)}")
+        self.nn_samples_testing_var = tk.StringVar(value=f"Sample (testing): {self.nn.get_current_test_sample_index() + 1} / {len(self.nn.get_test_set())}")
         samples_label = ttk.Label(test_frame, textvariable=self.nn_samples_testing_var, style="H3.TLabel")
         samples_label.pack(pady=(0, 5))
         
@@ -87,11 +87,11 @@ class AnimationWindow(tk.Toplevel):
         state_label = ttk.Label(train_frame, textvariable=self.nn_state_var, style="H2.TLabel")
         state_label.pack(pady=(0, 5))
         
-        self.nn_epoch_var = tk.StringVar(value=f"Epoch (training): 0 / {self.nn.epochs_num}")
+        self.nn_epoch_var = tk.StringVar(value=f"Epoch (training): 0 / {self.nn.get_epoch_number()}")
         epoch_label = ttk.Label(train_frame, textvariable=self.nn_epoch_var, style="H3.TLabel")
         epoch_label.pack(pady=(0, 5))
         
-        self.nn_samples_var = tk.StringVar(value=f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
+        self.nn_samples_var = tk.StringVar(value=f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.get_train_set())}")
         samples_label = ttk.Label(train_frame, textvariable=self.nn_samples_var, style="H3.TLabel")
         samples_label.pack(pady=(0, 5))
         
@@ -123,7 +123,7 @@ class AnimationWindow(tk.Toplevel):
 
     def __predict_step(self):
         index = self.nn.get_current_test_sample_index()
-        sample, target = self.nn.test_set[index - 1]
+        sample, target = self.nn.get_test_set()[index - 1]
         
         try:
             self.nn.predict_step(sample)
@@ -135,7 +135,7 @@ class AnimationWindow(tk.Toplevel):
         self.draw_active_layer_mark()
         state, layer_index = self.nn.get_state()
         
-        self.nn_samples_testing_var.set(f"Sample (testing): {self.nn.get_current_test_sample_index() + 1} / {len(self.nn.test_set)}")
+        self.nn_samples_testing_var.set(f"Sample (testing): {self.nn.get_current_test_sample_index() + 1} / {len(self.nn.get_test_set())}")
         
         if state == "PREDICT_FORWARD" and layer_index == 0:
             print(f"Predicting sample index: {index}")
@@ -153,16 +153,16 @@ class AnimationWindow(tk.Toplevel):
         self.draw_active_layer_mark()
         state, layer_index = self.nn.get_state()
         self.nn_state_var.set(f"NN State: {state}")
-        self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
-        self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
+        self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.get_train_set())}")
+        self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.get_epoch_number()}")
         
         if state == "FORWARD" and layer_index == 0:
-            self.update_sample_photo(self.nn.train_set[self.nn.get_current_train_sample_index()][0])
+            self.update_sample_photo(self.nn.get_train_set()[self.nn.get_current_train_sample_index()][0])
         elif state == "NEW_SAMPLE":
             self.update_sample_photo(None)
      
     def __train_epoch(self):
-        samples_amt = len(self.nn.train_set)
+        samples_amt = len(self.nn.get_train_set())
         try: 
             con_training = True
             while con_training and self.nn.get_current_train_sample_index() < samples_amt-1:
@@ -173,8 +173,8 @@ class AnimationWindow(tk.Toplevel):
         print("Epoch complete")
         state, layer_index = self.nn.get_state()
         self.nn_state_var.set(f"NN State: {state}")
-        self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
-        self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
+        self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.get_train_set())}")
+        self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.get_epoch_number()}")
         self.draw_network_text()
         self.draw_active_layer_mark()
         self.update_sample_photo(None)
@@ -190,8 +190,8 @@ class AnimationWindow(tk.Toplevel):
         print("Training complete")
         state, layer_index = self.nn.get_state()
         self.nn_state_var.set(f"NN State: {state}")
-        self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.train_set)}")
-        self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.epochs_num}")
+        self.nn_samples_var.set(f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.get_train_set())}")
+        self.nn_epoch_var.set(f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.get_epoch_number()}")
         self.draw_network_text()
         self.draw_active_layer_mark()
         self.update_sample_photo(None)
@@ -205,12 +205,12 @@ class AnimationWindow(tk.Toplevel):
         self.clicked_connections = []
         self.nn = NeuralNetwork(nn_structure=self.nn.get_structure(), 
                                 learning_rate=self.nn.get_learning_rate(), 
-                                epochs_num=self.nn.epochs_num, 
-                                dataset=self.nn.train_set)
+                                epochs_num=self.nn.get_epoch_number(), 
+                                dataset=self.nn.get_train_set())
         self.after(100, self.calculate_cords)
         self.nn_state_var.set(f"NN State: UNTRAINED")
-        self.nn_samples_var.set(f"Sample (training): 1 / {len(self.nn.train_set)}")
-        self.nn_epoch_var.set(f"Epoch (training): 0 / {self.nn.epochs_num}")
+        self.nn_samples_var.set(f"Sample (training): 1 / {len(self.nn.get_train_set())}")
+        self.nn_epoch_var.set(f"Epoch (training): 0 / {self.nn.get_epoch_number()}")
         self.update_sample_photo(None)
     
     def __exit_window(self):
@@ -422,7 +422,7 @@ class AnimationWindow(tk.Toplevel):
                     ) 
         
         state, _ = self.nn.get_state()
-        error_values = self.nn.errors_matrix
+        error_values = self.nn.get_errors_matrix()
         for j, (x, y) in enumerate(self.error_positions):
             nn_text_error = self.canvas.create_text(
                 x + self.bias_size/2, y,

@@ -20,9 +20,9 @@ class NeuralNetwork:
         if len(nn_structure) < 2:
             raise Exception("There must be no less than 2 layers!")
 
-        self.nn_structure = nn_structure
-        self.epochs_num = epochs_num
-        self.train_set, self.test_set = dataset[:int(len(dataset)*(1-test_percent))], dataset[int(len(dataset)*(1-test_percent)):] 
+        self.__nn_structure = nn_structure
+        self.__epochs_num = epochs_num
+        self.__train_set, self.__test_set = dataset[:int(len(dataset)*(1-test_percent))], dataset[int(len(dataset)*(1-test_percent)):] 
         
         self.__learning_rate = learning_rate
 
@@ -32,20 +32,20 @@ class NeuralNetwork:
         self.__state = NNState.UNTRAINED
         self.__state_pre = None
 
-        self.__layers_before_activation = [np.zeros((x, 1)) for x in nn_structure]
+        self.__layers_before_activation = [np.zeros((x, 1)) for x in self.__nn_structure]
 
         self.__epoch_counter = 0
         self.__train_sample_counter = 0
         self.__test_sample_counter = 0
         self.__counter = None
         self.current_layer_value = None
-        self.layers_values = [[] for x in range(len(self.nn_structure))]
-        self.error_sum = 0.0
-        self.errors_matrix = None
+        self.__layers_values = [[] for x in range(len(self.__nn_structure))]
+        self.__error_sum = 0.0
+        self.__errors_matrix = None
         
-        for i in range(len(nn_structure) - 1):
-            current_size = nn_structure[i]  # from layer (index)
-            next_size = nn_structure[i + 1]  # to layer (index)
+        for i in range(len(self.__nn_structure) - 1):
+            current_size = self.__nn_structure[i]  # from layer (index)
+            next_size = self.__nn_structure[i + 1]  # to layer (index)
 
             # setup weights matrix between from/to (index) layers
             self.__weights.append(np.array([(x - 0.5) / 2 for x in np.random.rand(next_size, current_size)]))
@@ -53,9 +53,19 @@ class NeuralNetwork:
             # setup biases matrix for (next index - skipping input layer) layers
             self.__biases.append(np.array([(x - 0.5) / 5 for x in np.random.rand(next_size, 1)]))
      
+    def get_errors_matrix(self):
+        return self.__errors_matrix
+     
+    def get_train_set(self):
+        return self.__train_set
+    def get_test_set(self):
+        return self.__test_set
+     
     def get_current_epoch(self) -> int:
         return self.__epoch_counter
     
+    def get_epoch_number(self) -> int:
+        return self.__epochs_num
     
     def get_current_test_sample_index(self) -> int:
         return self.__test_sample_counter
@@ -70,10 +80,10 @@ class NeuralNetwork:
         return self.__state.name, self.__counter
      
     def get_layers_with_values(self) -> List[np.array]:
-        return self.layers_values
+        return self.__layers_values
     
     def get_structure(self) -> List[int]:
-        return self.nn_structure
+        return self.__nn_structure
             
     def get_weights(self) -> List[np.array]:
         return self.__weights
@@ -89,7 +99,7 @@ class NeuralNetwork:
             self.__state_pre = self.__state
             self.__counter = None
             self.current_layer_value = None
-            self.layers_values = [[] for x in range(len(self.nn_structure))]
+            self.__layers_values = [[] for x in range(len(self.__nn_structure))]
             
         self.__state = NNState.PREDICT_FORWARD
         self.__feedforward(inputs)
@@ -105,18 +115,18 @@ class NeuralNetwork:
         if self.__state == NNState.PREDICT_FORWARD:
             raise Exception("Cannot train while predicting!")
         
-        sample = self.train_set[self.__train_sample_counter]
+        sample = self.__train_set[self.__train_sample_counter]
         
         if self.__state == NNState.TRAINED or self.__state == NNState.PREDICT_FORWARD:
             print("Network already trained!")
             return False
         
         elif self.__state == NNState.UNTRAINED:
-            random.shuffle(self.train_set)
+            random.shuffle(self.__train_set)
             self.__epoch_counter = 0
             self.__train_sample_counter = 0
             self.current_layer_value = None
-            self.layers_values = [[] for x in range(len(self.nn_structure))]
+            self.__layers_values = [[] for x in range(len(self.__nn_structure))]
             self.__feedforward(sample[0])
             self.__state = NNState.FORWARD
         
@@ -128,9 +138,9 @@ class NeuralNetwork:
             expected_results = sample[1]
             
             #expected_results_transposed = np.array(expected_results).reshape(len(expected_results), 1)
-            #self.errors_matrix = expected_results_transposed - predictions
+            #self.__errors_matrix = expected_results_transposed - predictions
             
-            self.error_sum += calculate_cross_entropy_cost(expected_results, predictions)
+            self.__error_sum += calculate_cross_entropy_cost(expected_results, predictions)
 
             self.__state = NNState.BACKWARD
             self.__backpropagation()
@@ -140,22 +150,22 @@ class NeuralNetwork:
             self.__backpropagation()
             
         elif self.__state == NNState.NEW_SAMPLE:
-            self.layers_values = [[] for x in range(len(self.nn_structure))]
+            self.__layers_values = [[] for x in range(len(self.__nn_structure))]
             self.__counter = None
             self.current_layer_value = None
-            self.errors_matrix = None
+            self.__errors_matrix = None
             
-            if self.__epoch_counter >= self.epochs_num:
-                self.__train_sample_counter = len(self.train_set) - 1
+            if self.__epoch_counter >= self.__epochs_num:
+                self.__train_sample_counter = len(self.__train_set) - 1
                 self.__state = NNState.TRAINED
                 print("Network trained!")
                 return False
             
-            if self.__train_sample_counter >= len(self.train_set) - 1:
-                print(f"Epoch {self.__epoch_counter} completed. Error: {self.error_sum/len(self.train_set):.3f}")
+            if self.__train_sample_counter >= len(self.__train_set) - 1:
+                print(f"Epoch {self.__epoch_counter} completed. Error: {self.__error_sum/len(self.__train_set):.3f}")
                 self.__epoch_counter +=1
                 self.__train_sample_counter = 0                
-                self.error_sum = 0.0
+                self.__error_sum = 0.0
             
             self.__feedforward_init(sample[0])
             self.__state = NNState.FORWARD
@@ -166,7 +176,7 @@ class NeuralNetwork:
         self.__layers_before_activation[0] = np.array(inputs).reshape(len(inputs), 1)
         self.current_layer_value = self.__layers_before_activation[0]
         self.__counter = 0
-        self.layers_values[self.__counter] = self.__layers_before_activation[0].copy()
+        self.__layers_values[self.__counter] = self.__layers_before_activation[0].copy()
     
     def __feedforward(self, inputs: List):
         if self.__counter == None: 
@@ -181,14 +191,14 @@ class NeuralNetwork:
             if self.__state == NNState.PREDICT_FORWARD:
                 self.__state = self.__state_pre
                 self.__test_sample_counter += 1
-                if self.__test_sample_counter >= len(self.test_set):
+                if self.__test_sample_counter >= len(self.__test_set):
                     self.__test_sample_counter = 0
             else:
-                sample = self.train_set[self.__train_sample_counter]
+                sample = self.__train_set[self.__train_sample_counter]
                 predictions = self.current_layer_value
                 expected_results = sample[1]
                 expected_results_transposed = np.array(expected_results).reshape(len(expected_results), 1)
-                self.errors_matrix = expected_results_transposed - predictions
+                self.__errors_matrix = expected_results_transposed - predictions
                 self.__state = NNState.ERROR
             return
             
@@ -210,7 +220,7 @@ class NeuralNetwork:
         self.__layers_before_activation[index + 1] = layer_with_added_biases
         self.current_layer_value = activated_layer
         
-        self.layers_values[self.__counter] = activated_layer
+        self.__layers_values[self.__counter] = activated_layer
     
     
     def __backpropagation(self):
@@ -221,7 +231,7 @@ class NeuralNetwork:
             
         if self.__counter < 0:
             self.__counter = None
-            self.layers_values = [[] for x in range(len(self.nn_structure))]
+            self.__layers_values = [[] for x in range(len(self.__nn_structure))]
             self.__train_sample_counter += 1
             self.__state = NNState.NEW_SAMPLE
             return
@@ -235,13 +245,13 @@ class NeuralNetwork:
             activation_derivative_layer = ReLU_derivative(self.__layers_before_activation[index + 1])
 
         # Calculate the gradient
-        gradient_matrix = activation_derivative_layer * self.errors_matrix * self.__learning_rate
+        gradient_matrix = activation_derivative_layer * self.__errors_matrix * self.__learning_rate
 
         # Calculate matrix with delta weights (values to change weights in given layer)
         delta_weights_matrix = np.matmul(gradient_matrix, self.__layers_before_activation[index].transpose())
 
         # Calculate error for next layer with respect to its weights
-        self.errors_matrix = np.matmul(self.__weights[index].transpose(), self.errors_matrix)
+        self.__errors_matrix = np.matmul(self.__weights[index].transpose(), self.__errors_matrix)
 
 
         # Adjust weights and biases
