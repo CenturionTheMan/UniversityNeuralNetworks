@@ -8,4 +8,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     gui = ConfiguratorWindow(root)
     root.mainloop() 
-    # test_state_nn()

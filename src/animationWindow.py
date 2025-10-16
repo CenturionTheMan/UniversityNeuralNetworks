@@ -8,7 +8,20 @@ from style import *
 from PIL import Image, ImageTk
 
 class AnimationWindow(tk.Toplevel):
+    """
+    A visualization and control window for a Neural Network (NN) model.
+    It allows step-by-step observation of NN training, prediction, and
+    weight updates, as well as direct user interaction with the network’s structure.
+    """
+
     def __init__(self, root, nn: NeuralNetwork):
+        """
+        Initialize the animation window.
+
+        Parameters:
+            root (tk.Tk): The root application window.
+            nn (NeuralNetwork): Instance of the neural network to visualize.
+        """
         super().__init__(root)
         self.title("Neural Network Animation")
         self.attributes("-fullscreen", True)
@@ -16,91 +29,111 @@ class AnimationWindow(tk.Toplevel):
         self.grab_set()
         self.nn = nn
 
-        # internal state
-        self.neuron_positions = None
-        self.neurons_dic = {}
-        self.hovered_neuron = None
-        self.clicked_neuron = None
-        self.active_connections = []
-        self.clicked_connections = []
+        # Internal visualization and interaction state
+        self.neuron_positions = None        # List of neuron coordinates per layer
+        self.neurons_dic = {}               # Dictionary mapping canvas items to neuron info
+        self.hovered_neuron = None          # Currently hovered neuron ID
+        self.clicked_neuron = None          # Currently clicked neuron ID
+        self.active_connections = []        # List of visible connections between neurons
+        self.clicked_connections = []       # Connections highlighted upon click
 
-        # Bind keys
-        self.bind("<KeyPress-Escape>", lambda e: self.destroy())
-        self.bind("<Right>", lambda e: self.__on_right_arrow())
+        # Keyboard bindings
+        self.bind("<KeyPress-Escape>", lambda e: self.destroy())  # Exit fullscreen
+        self.bind("<Right>", lambda e: self.__on_right_arrow())   # Step forward (training/prediction)
 
-        # Colors
+        # Window background color
         self.configure(bg=COL_CONNECTIONS)
 
+        # Build interface layout
         self.create_layout()
+
+        # Compute neuron coordinates after layout is drawn
         self.after(100, self.calculate_cords)
         self.focus_set()
         
-    # -------------------------------------- LAYOUT SETUP -------------------------------------- #
         
+    # ============================================================================================
+    #                                      LAYOUT SETUP
+    # ============================================================================================
+
     def create_layout(self):
-        #! Left canvas area
+        """Constructs the main layout: left visualization canvas and right control panel."""
+        
+        # Left canvas — used for drawing neurons, connections, and labels
         self.canvas = tk.Canvas(self, bg=COL_BACKGROUND, highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Mouse bindings for interaction
         self.canvas.bind("<ButtonPress-1>", self.__on_button_press)
         self.canvas.bind("<B1-Motion>", self.__on_mouse_drag)
         self.canvas.bind("<ButtonRelease-1>", self.__on_button_release)
         self.canvas.bind("<Motion>", self.__on_motion)
 
-        #! Right control panel
-        ctrl_frame = ttk.Frame(self , style="ControlPanel.TFrame", width=250)
+        # Right-side control panel for NN control buttons and status
+        ctrl_frame = ttk.Frame(self, style="ControlPanel.TFrame", width=250)
         ctrl_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=15, pady=20)
         ctrl_frame.pack_propagate(False)
         
+        # --- Current Sample Display ---
         ttk.Label(ctrl_frame, text="Current sample", style="H1.TLabel").pack(pady=(10, 0))
         ttk.Separator(ctrl_frame, orient="horizontal").pack(fill=tk.X, pady=(5,5))
         self.sample_label = ttk.Label(ctrl_frame)
         self.sample_label.pack(pady=(0,0))
 
+        # --- Training Section ---
         ttk.Label(ctrl_frame, text="Training", style="H1.TLabel").pack(pady=(40, 0))
         ttk.Separator(ctrl_frame, orient="horizontal").pack(fill=tk.X, pady=(5,5))
         self.create_right_train_section(ctrl_frame)
 
+        # --- Testing Section ---
         ttk.Label(ctrl_frame, text="Testing", style="H1.TLabel").pack(pady=(40, 0))
         ttk.Separator(ctrl_frame, orient="horizontal").pack(fill=tk.X, pady=(5,5))
         self.create_right_test_section(ctrl_frame)
-        
 
-        ttk.Button(ctrl_frame, text="Exit", command=self.__exit_window).pack(side=tk.BOTTOM, pady=10, fill=tk.X)        
+        # Exit button
+        ttk.Button(ctrl_frame, text="Exit", command=self.__exit_window).pack(side=tk.BOTTOM, pady=10, fill=tk.X)
 
     def create_right_test_section(self, ctrl_frame):
+        """Create the right-side controls related to NN testing/prediction."""
         test_frame = ttk.Frame(ctrl_frame, style="ControlPanel.TFrame")
         test_frame.pack(pady=0, fill=tk.X)
         
-        self.nn_samples_testing_var = tk.StringVar(value=f"Sample (testing): {self.nn.get_current_test_sample_index() + 1} / {len(self.nn.get_test_set())}")
+        # Display current testing sample index
+        self.nn_samples_testing_var = tk.StringVar(
+            value=f"Sample (testing): {self.nn.get_current_test_sample_index() + 1} / {len(self.nn.get_test_set())}"
+        )
         samples_label = ttk.Label(test_frame, textvariable=self.nn_samples_testing_var, style="H3.TLabel")
         samples_label.pack(pady=(0, 5))
         
-        
+        # Prediction step button
         ttk.Button(test_frame, text="▶ Predict Step", command=self.__predict_step).pack(pady=5, fill=tk.X)
 
     def create_right_train_section(self, ctrl_frame):
+        """Create the right-side controls for NN training operations."""
         train_frame = ttk.Frame(ctrl_frame, style="ControlPanel.TFrame")
         train_frame.pack(pady=0, fill=tk.X)
         
+        # Display NN current state and progress
         state, layer_index = self.nn.get_state()
         self.nn_state_var = tk.StringVar(value=f"NN State: {state}")
-        state_label = ttk.Label(train_frame, textvariable=self.nn_state_var, style="H2.TLabel")
-        state_label.pack(pady=(0, 5))
+        ttk.Label(train_frame, textvariable=self.nn_state_var, style="H2.TLabel").pack(pady=(0, 5))
         
         self.nn_epoch_var = tk.StringVar(value=f"Epoch (training): 0 / {self.nn.get_epoch_number()}")
-        epoch_label = ttk.Label(train_frame, textvariable=self.nn_epoch_var, style="H3.TLabel")
-        epoch_label.pack(pady=(0, 5))
+        ttk.Label(train_frame, textvariable=self.nn_epoch_var, style="H3.TLabel").pack(pady=(0, 5))
         
-        self.nn_samples_var = tk.StringVar(value=f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.get_train_set())}")
-        samples_label = ttk.Label(train_frame, textvariable=self.nn_samples_var, style="H3.TLabel")
-        samples_label.pack(pady=(0, 5))
+        self.nn_samples_var = tk.StringVar(
+            value=f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.get_train_set())}"
+        )
+        ttk.Label(train_frame, textvariable=self.nn_samples_var, style="H3.TLabel").pack(pady=(0, 5))
         
+        # Control buttons
         ttk.Button(train_frame, text="▶ Training Step", command=self.__training_step).pack(pady=5, fill=tk.X)
         ttk.Button(train_frame, text="▶ Train epoch", command=self.__train_epoch).pack(pady=5, fill=tk.X)
         ttk.Button(train_frame, text="⚙ Train full", command=self.__train_full).pack(pady=5, fill=tk.X)
         ttk.Button(train_frame, text="⟳ Reset Network", command=self.__reset).pack(pady=5, fill=tk.X)
-        
-
+    
+    
+    # TODO FROM HERE
     def update_sample_photo(self, sample):
         if sample is None:
             sample = np.zeros((64,))
