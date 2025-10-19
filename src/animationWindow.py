@@ -39,8 +39,8 @@ class AnimationWindow(tk.Toplevel):
         self.neurons_dic = {}                  # Maps canvas items to neuron info
         self.hovered_neuron = None             # Currently hovered neuron ID
         self.clicked_neuron = None             # Currently selected neuron ID
-        self.active_connections = []           # Lines representing visible connections
-        self.clicked_connections = []          # Highlighted or selected connections
+        self.active_connections = []           # Hovered lines representing visible connections
+        self.clicked_connections = []          # Clicked neurons with highlighted connections
 
         # ----- Keyboard bindings -----
         self.bind("<KeyPress-Escape>", lambda e: self.destroy())   # Close window on Esc
@@ -204,10 +204,10 @@ class AnimationWindow(tk.Toplevel):
         # Retrieve current neural network state and active layer index
         state, layer_index = self.nn.get_state()
 
-        # If network is trained or in prediction mode → perform prediction step
+        # If network is trained or in prediction mode perform prediction step
         if state == "TRAINED" or state == "PREDICT_FORWARD":
             self.__predict_step()
-        # Otherwise → continue training step-by-step
+        # Otherwise continue training step-by-step
         else:
             self.__training_step()
 
@@ -218,7 +218,6 @@ class AnimationWindow(tk.Toplevel):
         index = self.nn.get_current_test_sample_index()
         
         # Retrieve the current sample and its expected target from the test set
-        # Note: index - 1 ensures correct zero-based list access
         sample, target = self.nn.get_test_set()[index - 1]
         
         # Attempt to perform one forward prediction step
@@ -243,7 +242,7 @@ class AnimationWindow(tk.Toplevel):
             f"Sample (testing): {self.nn.get_current_test_sample_index() + 1} / {len(self.nn.get_test_set())}"
         )
         
-        # If the network starts a new forward prediction — display the sample image
+        # If the network starts a new forward prediction display the sample image
         if state == "PREDICT_FORWARD" and layer_index == 0:
             print(f"Predicting sample index: {index}")
             self.update_sample_photo(sample)
@@ -292,42 +291,54 @@ class AnimationWindow(tk.Toplevel):
 
      
     def __train_epoch(self):
-        """Perform training for one full epoch (iterate over all training samples)."""
-        # Retrieve the current state and layer after the epoch
-        state, layer_index = self.nn.get_state()
+        """
+        Perform training for one full epoch over the entire training dataset.
+        """
+        
+        # Retrieve the current state and active layer from the neural network
+        state, _ = self.nn.get_state()
+        
+        # If the network is already fully trained or currently predicting, skip training
         if state in ["TRAINED", "PREDICT_FORWARD"]:
             return
 
+        # Total number of training samples
         samples_amt = len(self.nn.get_train_set())
+
         try:
             con_training = True
+            
+            # Iterate over training samples until the epoch is complete
             while con_training and self.nn.train_step():
                 state, _ = self.nn.get_state()
-                if self.nn.get_current_train_sample_index() == samples_amt-1 and state == "NEW_SAMPLE":
+                
+                # Stop the loop when the last sample of the epoch has finished backprop
+                if self.nn.get_current_train_sample_index() == samples_amt - 1 and state == "NEW_SAMPLE":
                     con_training = False
         except Exception as e:
-            # Show popup if any training error occurs
+            # Display an error message if training fails for any reason
             messagebox.showinfo("Error", str(e))
             return
 
-        # Update displayed training statistics (state, sample, epoch info)
+        # Update GUI elements to reflect the current state of training
         self.nn_state_var.set(f"NN State: {state}")
         self.nn_samples_var.set(
             f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.get_train_set())}"
         )
         
-        
-        epoch_num = min(self.nn.get_epoch_number(), self.nn.get_current_epoch()+1)
+        # Display the current epoch, ensuring it does not exceed the maximum epoch number
+        epoch_num = min(self.nn.get_epoch_number(), self.nn.get_current_epoch() + 1)
         self.nn_epoch_var.set(
             f"Epoch (training): {epoch_num} / {self.nn.get_epoch_number()}"
         )
 
-        # Redraw network visualization and active layer markers
+        # Redraw the network layers and weights values on the canvas
         self.draw_network_text()
         self.draw_active_layer_mark()
 
-        # Clear the sample preview image at the end of the epoch
+        # Reset the sample preview image after completing the epoch
         self.update_sample_photo(None)
+
 
      
     def __train_full(self):

@@ -45,9 +45,7 @@ class ConfiguratorWindow:
         # Initialize with one hidden layer by default
         self.add_layer()
 
-    # =====================================================
-    # LEFT SIDE: Network Structure Configuration
-    # =====================================================
+# -------------------------------------- LEFT SIDE: Network Structure Configuration -------------------------------------- #
 
     def create_left_row(self):
         """Create the left section for defining network layers."""
@@ -84,9 +82,7 @@ class ConfiguratorWindow:
         )
         self.add_layer_button.grid(row=4, column=0, columnspan=3, pady=10)
 
-    # =====================================================
-    # RIGHT SIDE: Control Panel
-    # =====================================================
+# -------------------------------------- RIGHT SIDE: Control Panel -------------------------------------- #
 
     def create_right_row(self):
         """Create the right section containing control buttons."""
@@ -109,9 +105,7 @@ class ConfiguratorWindow:
         )
         self.run_button.pack(pady=10)
 
-    # =====================================================
-    # LAYER CREATION UTILITIES
-    # =====================================================
+# -------------------------------------- LAYER CREATION UTILITIES-------------------------------------- #
 
     def create_fixed_layer(self, parent, row, label, neurons=8):
         """
@@ -199,9 +193,7 @@ class ConfiguratorWindow:
             label = f.winfo_children()[0]
             label.config(text=f"Hidden {idx}:")
 
-    # =====================================================
-    # ANIMATION LAUNCH
-    # =====================================================
+# -------------------------------------- ANIMATION LAUNCH-------------------------------------- #
 
     def run_animation(self):
         """Construct the neural network and open the animation window."""

@@ -222,7 +222,6 @@ class NeuralNetwork:
 
         return True
 
-
 # -------------------------------------- INTERNAL METHODS-------------------------------------- #
 
     def __reset_for_new_sample(self):
