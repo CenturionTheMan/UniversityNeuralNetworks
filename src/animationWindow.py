@@ -280,7 +280,7 @@ class AnimationWindow(tk.Toplevel):
         self.nn_epoch_var.set(
             f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.get_epoch_number()}"
         )
-
+        
         # If a new forward pass starts — show the current input sample on the preview
         if state == "FORWARD" and layer_index == 0:
             sample = self.nn.get_train_set()[self.nn.get_current_train_sample_index()][0]
@@ -293,32 +293,33 @@ class AnimationWindow(tk.Toplevel):
      
     def __train_epoch(self):
         """Perform training for one full epoch (iterate over all training samples)."""
-        
-        # Get total number of samples in the training set
-        samples_amt = len(self.nn.get_train_set())
+        # Retrieve the current state and layer after the epoch
+        state, layer_index = self.nn.get_state()
+        if state in ["TRAINED", "PREDICT_FORWARD"]:
+            return
 
+        samples_amt = len(self.nn.get_train_set())
         try:
-            # Continue training until either stopped or last sample is reached
             con_training = True
-            while con_training and self.nn.get_current_train_sample_index() < samples_amt - 1:
-                con_training = self.nn.train_step()
+            while con_training and self.nn.train_step():
+                state, _ = self.nn.get_state()
+                if self.nn.get_current_train_sample_index() == samples_amt-1 and state == "NEW_SAMPLE":
+                    con_training = False
         except Exception as e:
             # Show popup if any training error occurs
             messagebox.showinfo("Error", str(e))
             return
-
-        print("Epoch complete")
-
-        # Retrieve the current state and layer after the epoch
-        state, layer_index = self.nn.get_state()
 
         # Update displayed training statistics (state, sample, epoch info)
         self.nn_state_var.set(f"NN State: {state}")
         self.nn_samples_var.set(
             f"Sample (training): {self.nn.get_current_train_sample_index() + 1} / {len(self.nn.get_train_set())}"
         )
+        
+        
+        epoch_num = min(self.nn.get_epoch_number(), self.nn.get_current_epoch()+1)
         self.nn_epoch_var.set(
-            f"Epoch (training): {self.nn.get_current_epoch()} / {self.nn.get_epoch_number()}"
+            f"Epoch (training): {epoch_num} / {self.nn.get_epoch_number()}"
         )
 
         # Redraw network visualization and active layer markers
@@ -380,7 +381,7 @@ class AnimationWindow(tk.Toplevel):
             nn_structure=self.nn.get_structure(), 
             learning_rate=self.nn.get_learning_rate(), 
             epochs_num=self.nn.get_epoch_number(), 
-            dataset=self.nn.get_train_set()
+            dataset=self.nn.get_train_set() + self.nn.get_test_set()
         )
 
         # Recalculate neuron coordinates after layout redraw

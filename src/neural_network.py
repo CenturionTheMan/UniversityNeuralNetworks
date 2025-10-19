@@ -212,6 +212,7 @@ class NeuralNetwork:
             # If all epochs completed, mark network as trained
             if self.__epoch_counter >= self.__epochs_num:
                 self.__state = NNState.TRAINED
+                self.__train_sample_counter = len(self.__train_set)-1
                 print("Network trained!")
                 return False
 
