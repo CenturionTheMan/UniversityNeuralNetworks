@@ -20,8 +20,9 @@ class DigitsDataset(object):
         
         # Combine normalized inputs and one-hot encoded labels into a single dataset
         self.__dataset = list(zip(X, y))
+        
     
-    def get_dataset(self) -> np.array:
+    def get_dataset(self) -> list[tuple[np.array, np.array]]:
         """
         Return the dataset as a list of (input, target) tuples.
         Each input is a normalized 64-dimensional vector,

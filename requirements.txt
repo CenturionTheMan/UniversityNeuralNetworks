@@ -2,3 +2,6 @@ numpy
 scikit-learn 
 matplotlib
 Pillow
+pandas
+seaborn
+tabulate

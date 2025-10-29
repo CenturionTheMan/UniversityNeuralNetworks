@@ -118,6 +118,10 @@ class NeuralNetwork:
     def get_biases(self) -> List[np.array]:
         """Return the list of bias vectors for each layer."""
         return self.__biases
+    
+    def get_last_prediction(self):
+        """Return the output of the last prediction made by the network."""
+        return self.current_layer_value
 
 # -------------------------------------- PREDICTION / TRAINING -------------------------------------- #
 
